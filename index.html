@@ -1,1 +1,190 @@
-algol
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>施坦达视觉检测记录解析工具</title>
+		<script src="Js/jquery.min.js"></script>
+	</head>
+	<body>
+		<!-- https://www.iana.org/assignments/media-types/media-types.xhtml -->
+		<!-- https://www.iana.org/assignments/media-types/text/csv -->
+		<div style="width:1000px;height:800px;border:1px solid #CCCCCC;margin:auto;padding:12px;">
+			<h2>施坦达视觉检测记录解析工具</h2>
+			<input type="file" accept="text/csv" />
+			<div id="FileInfo" style="padding:12px;background-color:#F2F2F2;margin-top:8px;margin-bottom:8px;line-height:32px;">
+				开始时间：<span id="Rec_sTime" style="width:42px;"></span><br>
+				结束时间：<span id="Rec_eTime" style="width:42px;"></span><br>
+				生产时长：<span id="CntTime" style="width:42px;"></span><br>
+				生产总数：<span id="Total" style="width:42px;"></span><br>
+				生产速度：<span id="ProductionRate" style="width:42px;"></span><br>
+				<!-- 总记录数：<span id="Rec_Count" style="width:42px;"></span><br> -->
+				合格品：<span id="Rec_OK" style="width:42px;"></span><br>
+				不良品：<span id="Rec_NG" style="width:42px;"></span><br>
+				合格率：<span id="PassRate" style="width:42px;"></span><br>
+				<!-- 停机时长：<span id="StopTime" style="width:42px;"></span> -->
+				<br>
+				<hr>
+				Powered by AlgolStudio
+			</div>
+			<!-- 输出: <textarea id="tOutput" rows="30" name="S1" cols="80"></textarea> -->
+		</div>
+	</body>
+</html>
+<script type="text/javascript">
+window.onload = (event) => {
+	main();
+}
+function main() {
+	var inputFile = document.querySelector("input[type='file']");
+	inputFile.onchange = (event) => {
+		var file = inputFile.files[0];
+		var fileReader = new FileReader();
+		var c="";
+		var outPutStr="";
+		var sTime;
+		var eTime;
+		var CntOK=0;
+		var CntNG=0;
+		var LastTime="1970/03/09 09:07:21";
+		fileReader.readAsText(file, "utf-8");
+		fileReader.onload = (event) => {
+			var result = fileReader.result;
+			var lines = result.split(/[\r\n]+/g);
+			$("#Rec_Count").html(Math.floor(lines.length-1)+"&nbsp;（版）");
+			sTime=lines[1].split(",")[1];
+			eTime=lines[lines.length-2].split(",")[1]
+			$("#Rec_sTime").html(sTime);
+			$("#Rec_eTime").html(eTime);
+			
+			//统计良品和不良品
+			for(var i=1;i<lines.length-2;i++){
+				//console.log(GetDateDiff(lines[i].split(",")[1],LastTime,"second"));
+				if(GetDateDiff(lines[i].split(",")[1],LastTime,"second")!=0){
+					CntOK+=sum(lines[i],"OK");
+					CntNG+=sum(lines[i],"NG");
+					LastTime=lines[i].split(",")[1];
+				}
+			}
+			$("#Total").html(CntOK+CntNG);
+			$("#Rec_OK").html(CntOK);
+			$("#Rec_NG").html(CntNG);
+			$("#PassRate").html(Math.round(((CntOK+CntNG-CntNG)/(CntOK+CntNG))*10000)/100 + "%");
+			$("#CntTime").html(GetDateDiff(sTime,eTime,"minute") + " min");
+			$("#ProductionRate").html(Math.round((CntOK+CntNG)/GetDateDiff(sTime,eTime,"minute")) + " PCS/min");
+
+			<!-- for(var i=1;i<21;i++){ -->
+				<!-- c=c+Translate(lines[i]) -->
+				<!-- console.log(lines[i]); -->
+			<!-- }; -->
+			<!-- $("#tOutput").val(c); -->
+			//console.log(lines[1]);
+		}
+	}
+}
+		
+//转换字符串
+function Translate(Str){
+	//alert(Str);
+	//去掉多余的文本
+	var RecTime=Str.split(",")[1];
+	Str=Str.replaceAll("结果：","");
+	Str=Str.replaceAll("判断：",";");
+	Str=Str.replaceAll("长度","L");
+	Str=Str.replaceAll("宽度",";W");
+	Str=Str.replaceAll(":",";");
+
+	var tmpArr=Str.split('   ');
+	var tmpStr="";
+	var tmpSubStr="";
+
+	for(i=0;i<tmpArr.length;i++){
+		tmpSubStr="";
+		if(tmpArr[i].length>4){
+			var subArr=tmpArr[i].split(";");
+			if(subArr.length>4){
+				tmpSubStr=RecTime+"，"+addZero(i+1)+"，"+tmpSubStr+keepTwoDecimalFull(subArr[1])+"，"+keepTwoDecimalFull(subArr[3])+"，"+subArr[4];
+			}
+			if(i<tmpArr.length-1){
+				tmpStr=tmpStr+tmpSubStr+"\n";
+			}else{
+				tmpStr=tmpStr+tmpSubStr;
+			};
+		}
+	}
+	return tmpStr;
+}
+
+//四舍五入保留2位小数（不够位数，则用0替补）  
+function keepTwoDecimalFull(num) {  
+	var result = parseFloat(num);  
+	if (isNaN(result)) {  
+		alert('传递参数错误，请检查！');  
+		return false;  
+	}  
+	result = Math.round(num * 100) / 100;  
+	var s_x = result.toString(); //将数字转换为字符串
+	var pos_decimal = s_x.indexOf('.'); //小数点的索引值
+	// 当整数时，pos_decimal=-1 自动补0  
+	if (pos_decimal < 0) {  
+		pos_decimal = s_x.length;  
+		s_x += '.';  
+	}
+	// 当数字的长度< 小数点索引+2时，补0  
+	while (s_x.length <= pos_decimal + 2) {  
+		s_x += '0';  
+	}  
+	return s_x;  
+}
+
+//数字前后补0
+function addZero(num) {
+	var t = (num + '').length,
+		s = '';
+	for (var i = 0; i < 2 - t; i++) {
+		s += '0';
+	}
+	return s + num;
+}
+
+//字符串出现次数
+function sum(str, a) {
+	let b = str.indexOf(a);
+	var num = 0;
+	while (b !== -1) {
+		//console.log(b);
+		num++;
+		b = str.indexOf(a, b + 1)
+	}
+	return num;
+}
+
+//计算时间间隔
+function GetDateDiff(startTime, endTime, diffType) {
+    //将xxxx-xx-xx的时间格式，转换为 xxxx/xx/xx的格式 
+    startTime = startTime.replace(/\-/g, "/");
+    endTime = endTime.replace(/\-/g, "/");
+    //将计算间隔类性字符转换为小写
+    diffType = diffType.toLowerCase();
+    var sTime =new Date(startTime); //开始时间
+    var eTime =new Date(endTime); //结束时间
+    //作为除数的数字
+    var timeType =1;
+    switch (diffType) {
+        case"second":
+            timeType =1000;
+        break;
+        case"minute":
+            timeType =1000*60;
+        break;
+        case"hour":
+            timeType =1000*3600;
+        break;
+        case"day":
+            timeType =1000*3600*24;
+        break;
+        default:
+        break;
+    }
+    return parseInt((eTime.getTime() - sTime.getTime()) / parseInt(timeType));
+}
+</script>
